@@ -1,3 +1,3 @@
-export const title = "Mini App Factory App";
-export const description = "This app was created by the Mini App Factory!";
+export const title = "Velocity Core: Rage Dash";
+export const description = "A fast‑paced 2D runner where you master momentum.";
 export const url = process.env.NEXT_PUBLIC_URL;
