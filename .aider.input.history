@@ -1268,3 +1268,141 @@
 +```
 +
 +Generate an app logo and update the app metadata title and description.
+
+# 2025-12-01 07:30:25.287499
++This is a comprehensive technical specification for the game Velocity Core: Rage Dash, designed to provide all necessary parameters, physics constants, aesthetic details, and logic to allow for accurate recreation in any other environment.
++The game is a top-down, infinite vertical scroller where the player controls a core object that must dodge oncoming hazards within a confined track. The difficulty is dynamic, increasing both with score and the initial difficulty selection.
++1. Core Game Mechanics & Aesthetic Design
++The game uses a fixed-ratio, responsive vertical viewport (simulating a mobile phone display) with a dark, high-contrast neon aesthetic.
++| Parameter | Value/Description |
++|---|---|
++| Viewport Ratio | Fluid, adapted to container size (aspect-[9/16]), typically portrait. |
++| Background Color | #000000 (Black) within the track area. |
++| Outer Border | #00ffaa (Neon Green), 3px solid, with a shadow of 0 0 50px rgba(0, 255, 170, 0.5). |
++| Track Width | Fixed at 60% (TRACK_WIDTH_RATIO = 0.6) of the total canvas width. |
++| Font | 'Orbitron', sans-serif (Neon/Sci-Fi style). |
++| Player Size | 15 pixels (PLAYER_SIZE = 15). |
++| Obstacle Height | 20 pixels (OBSTACLE_HEIGHT = 20). |
++2. Technical Parameters and Player Physics
++The player's movement is not direct; it is smoothly interpolated toward a touch/mouse input target, creating a deliberate "lag" or momentum effect.
++Player Movement and Boundaries
++ * Player Smoothing Constant: 0.25 (PLAYER_SMOOTHING). Each frame, the player moves 25% of the distance toward the targetX and targetY coordinates.
++   
++ * Horizontal Bounds: The player's center must remain within the track boundaries, clamped by the player's half-size:
++   * minX = TRACK_X_START + (15 / 2)
++   * maxX = TRACK_X_END - (15 / 2)
++ * Vertical Bounds: The player's center must be within the canvas height, clamped by the player's half-size.
++Scoring and Adaptive Speed
++ * Scoring Rate: Score increases by 1 for every 10 game frames (score = floor(frameCount / 10)).
++ * Speed Formula: The overall scroll speed is calculated per frame based on the initial speed for the difficulty mode and a multiplier based on the current score.
++   
++3. Difficulty Configuration
++Difficulty is governed by three primary parameters: InitialSpeed, ScoreMultiplier, and SpawnInterval. Obstacle complexity is also limited by the maxComplexity level.
++| Mode | Initial Speed (pixels/frame) | Score Multiplier (Speed/Score Unit) | Spawn Interval (Frames) | Min/Max Gap Ratio | Max Obstacle Complexity |
++|---|---|---|---|---|---|
++| EASY | 0.35 | 0.00008 | 160 | 0.45 / 0.70 | 1 (Standard Gap Only) |
++| MEDIUM | 0.60 | 0.00012 | 130 | 0.35 / 0.60 | 4 (Up to Spinner) |
++| HARD | 1.00 | 0.00020 | 90 | 0.25 / 0.45 | 5 (All Types, Max Difficulty) |
++4. Obstacle System (Types 1–5)
++All standard obstacles are fixed-width barriers (WIDTH * TRACK_WIDTH_RATIO) spanning the entire playable track, with gaps generated randomly according to the current mode's minGapRatio and maxGapRatio.
++| Type | Name | Scroll Speed | Appearance | Behavior / Restriction |
++|---|---|---|---|---|
++| 1 | Standard Gap | scrollSpeed | Single rectangular opening. | Default, always available. |
++| 2 | Center Gap | scrollSpeed | Two rectangular blocks, separated by a centered gap. | Available on Medium/Hard. Gap is centered horizontally. |
++| 3 | Moving Gap | scrollSpeed | Single rectangular opening that shifts horizontally. | Available on Medium/Hard. Shifts using a sine wave function. |
++| 4 | Spinning Core | scrollSpeed | Fixed outer blocks with a large, rotating cross in the center. | Available on Medium/Hard. Requires complex collision logic. |
++| 5 | Hyper Dash Wall | scrollSpeed x 2.5 | Standard gap with a unique orange color (#ff9900). | Hard Mode Only. Travels 2.5x faster than the current game speed. |
++Moving Gap (Type 3) Logic
++The horizontal position (currentGapPosition) of the moving gap is determined by a sine wave oscillation:
++ * Amplitude: A = \text{TrackWidth} \times 0.2
++ * Offset: \omega is randomized between 0.02 and 0.05.
++ * Position:
++   
++ * The final position is clamped to keep the obstacle entirely within the track.
++Spinning Core (Type 4) Logic
++ * Hazard: A cross shape (horizontal and vertical bars) located at the center of the obstacle's total width.
++ * Rotation Speed: 0.07 radians/frame (Medium); 0.10 radians/frame (Hard).
++ * Draw: Uses ctx.save(), ctx.translate(), and ctx.rotate() to render the hazard.
++5. Collision Detection
++Standard Collision (Types 1, 2, 3, 5)
++A collision occurs if the player's bounding box (player.x ± 7.5, player.y ± 7.5) vertically overlaps the obstacle (oT to oB) AND horizontally overlaps the solid part of the wall (outside the gapL to gapR bounds).
++Spinning Core Collision (Type 4) - Critical Detail
++Collision with the rotating cross shape requires rotating the player's coordinates into the obstacle's fixed frame of reference.
++ * Define Spinner Center: centerX, centerY.
++ * Define Player Center: pCX, pCY.
++ * Inverse Rotation: Calculate the player's position (rPx, rPy) if the world were rotated back by -this.rotation.
++   
++ * Collision Check (Axis-Aligned Bounding Box - AABB): Perform an AABB check between the rotated player position (rPx, rPy) and the unrotated fixed bounding boxes of the cross bars (horizontal and vertical).
++   * Horizontal Bar Box: y range: \text{centerY} \pm (\text{spinnerSize} / 5); x range: \text{centerX} \pm (\text{spinnerSize} / 2).
++   * Vertical Bar Box: y range: \text{centerY} \pm (\text{spinnerSize} / 2); x range: \text{centerX} \pm (\text{spinnerSize} / 5).
++   * A collision occurs if the player's box (rPx ± 7.5, rPy ± 7.5) intersects either of these two fixed-frame boxes.
++
+
+# 2025-12-01 07:30:25.289080
++This is a comprehensive technical specification for the game Velocity Core: Rage Dash, designed to provide all necessary parameters, physics constants, aesthetic details, and logic to allow for accurate recreation in any other environment.
++The game is a top-down, infinite vertical scroller where the player controls a core object that must dodge oncoming hazards within a confined track. The difficulty is dynamic, increasing both with score and the initial difficulty selection.
++1. Core Game Mechanics & Aesthetic Design
++The game uses a fixed-ratio, responsive vertical viewport (simulating a mobile phone display) with a dark, high-contrast neon aesthetic.
++| Parameter | Value/Description |
++|---|---|
++| Viewport Ratio | Fluid, adapted to container size (aspect-[9/16]), typically portrait. |
++| Background Color | #000000 (Black) within the track area. |
++| Outer Border | #00ffaa (Neon Green), 3px solid, with a shadow of 0 0 50px rgba(0, 255, 170, 0.5). |
++| Track Width | Fixed at 60% (TRACK_WIDTH_RATIO = 0.6) of the total canvas width. |
++| Font | 'Orbitron', sans-serif (Neon/Sci-Fi style). |
++| Player Size | 15 pixels (PLAYER_SIZE = 15). |
++| Obstacle Height | 20 pixels (OBSTACLE_HEIGHT = 20). |
++2. Technical Parameters and Player Physics
++The player's movement is not direct; it is smoothly interpolated toward a touch/mouse input target, creating a deliberate "lag" or momentum effect.
++Player Movement and Boundaries
++ * Player Smoothing Constant: 0.25 (PLAYER_SMOOTHING). Each frame, the player moves 25% of the distance toward the targetX and targetY coordinates.
++   
++ * Horizontal Bounds: The player's center must remain within the track boundaries, clamped by the player's half-size:
++   * minX = TRACK_X_START + (15 / 2)
++   * maxX = TRACK_X_END - (15 / 2)
++ * Vertical Bounds: The player's center must be within the canvas height, clamped by the player's half-size.
++Scoring and Adaptive Speed
++ * Scoring Rate: Score increases by 1 for every 10 game frames (score = floor(frameCount / 10)).
++ * Speed Formula: The overall scroll speed is calculated per frame based on the initial speed for the difficulty mode and a multiplier based on the current score.
++   
++3. Difficulty Configuration
++Difficulty is governed by three primary parameters: InitialSpeed, ScoreMultiplier, and SpawnInterval. Obstacle complexity is also limited by the maxComplexity level.
++| Mode | Initial Speed (pixels/frame) | Score Multiplier (Speed/Score Unit) | Spawn Interval (Frames) | Min/Max Gap Ratio | Max Obstacle Complexity |
++|---|---|---|---|---|---|
++| EASY | 0.35 | 0.00008 | 160 | 0.45 / 0.70 | 1 (Standard Gap Only) |
++| MEDIUM | 0.60 | 0.00012 | 130 | 0.35 / 0.60 | 4 (Up to Spinner) |
++| HARD | 1.00 | 0.00020 | 90 | 0.25 / 0.45 | 5 (All Types, Max Difficulty) |
++4. Obstacle System (Types 1–5)
++All standard obstacles are fixed-width barriers (WIDTH * TRACK_WIDTH_RATIO) spanning the entire playable track, with gaps generated randomly according to the current mode's minGapRatio and maxGapRatio.
++| Type | Name | Scroll Speed | Appearance | Behavior / Restriction |
++|---|---|---|---|---|
++| 1 | Standard Gap | scrollSpeed | Single rectangular opening. | Default, always available. |
++| 2 | Center Gap | scrollSpeed | Two rectangular blocks, separated by a centered gap. | Available on Medium/Hard. Gap is centered horizontally. |
++| 3 | Moving Gap | scrollSpeed | Single rectangular opening that shifts horizontally. | Available on Medium/Hard. Shifts using a sine wave function. |
++| 4 | Spinning Core | scrollSpeed | Fixed outer blocks with a large, rotating cross in the center. | Available on Medium/Hard. Requires complex collision logic. |
++| 5 | Hyper Dash Wall | scrollSpeed x 2.5 | Standard gap with a unique orange color (#ff9900). | Hard Mode Only. Travels 2.5x faster than the current game speed. |
++Moving Gap (Type 3) Logic
++The horizontal position (currentGapPosition) of the moving gap is determined by a sine wave oscillation:
++ * Amplitude: A = \text{TrackWidth} \times 0.2
++ * Offset: \omega is randomized between 0.02 and 0.05.
++ * Position:
++   
++ * The final position is clamped to keep the obstacle entirely within the track.
++Spinning Core (Type 4) Logic
++ * Hazard: A cross shape (horizontal and vertical bars) located at the center of the obstacle's total width.
++ * Rotation Speed: 0.07 radians/frame (Medium); 0.10 radians/frame (Hard).
++ * Draw: Uses ctx.save(), ctx.translate(), and ctx.rotate() to render the hazard.
++5. Collision Detection
++Standard Collision (Types 1, 2, 3, 5)
++A collision occurs if the player's bounding box (player.x ± 7.5, player.y ± 7.5) vertically overlaps the obstacle (oT to oB) AND horizontally overlaps the solid part of the wall (outside the gapL to gapR bounds).
++Spinning Core Collision (Type 4) - Critical Detail
++Collision with the rotating cross shape requires rotating the player's coordinates into the obstacle's fixed frame of reference.
++ * Define Spinner Center: centerX, centerY.
++ * Define Player Center: pCX, pCY.
++ * Inverse Rotation: Calculate the player's position (rPx, rPy) if the world were rotated back by -this.rotation.
++   
++ * Collision Check (Axis-Aligned Bounding Box - AABB): Perform an AABB check between the rotated player position (rPx, rPy) and the unrotated fixed bounding boxes of the cross bars (horizontal and vertical).
++   * Horizontal Bar Box: y range: \text{centerY} \pm (\text{spinnerSize} / 5); x range: \text{centerX} \pm (\text{spinnerSize} / 2).
++   * Vertical Bar Box: y range: \text{centerY} \pm (\text{spinnerSize} / 2); x range: \text{centerX} \pm (\text{spinnerSize} / 5).
++   * A collision occurs if the player's box (rPx ± 7.5, rPy ± 7.5) intersects either of these two fixed-frame boxes.
++
