@@ -278,7 +278,7 @@ export default function Game() {
       // Rotate player position into obstacle frame
       const dx = p.x - centerX;
       const dy = p.y - centerY;
-      const angle = -o.rotation;
+      const angle = -(o.rotation ?? 0);
       const rx = dx * Math.cos(angle) - dy * Math.sin(angle);
       const ry = dx * Math.sin(angle) + dy * Math.cos(angle);
       // Horizontal bar
