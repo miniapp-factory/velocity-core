@@ -1406,3 +1406,99 @@
 +   * Vertical Bar Box: y range: \text{centerY} \pm (\text{spinnerSize} / 2); x range: \text{centerX} \pm (\text{spinnerSize} / 5).
 +   * A collision occurs if the player's box (rPx ± 7.5, rPy ± 7.5) intersects either of these two fixed-frame boxes.
 +
+
+# 2025-12-01 07:49:04.328652
++Recreate the while entire game
++
++Velocity Core: Rage Dash:
++Game Blueprint: Velocity Core: Rage Dash
++1. Game Environment and Aesthetics
++The game takes place within a vertical, endless runner format.
++ * Theme: High-contrast, dark/black background with bright Neon accents (Sci-Fi/Matrix look).
++ * Track Layout: The playable area is a central vertical column, fixed at 60% of the screen's width. The remaining 40% on the sides is non-playable space, bordered by a glowing line.
++ * Player Object (The Core): A small, 15x15 pixel glowing square.
++ * Obstacle Objects: Darker blocks with bright neon outlines (pink/red, orange for special ones).
++2. Player Controls and Movement
++The player's movement is designed to feel slightly slippery and momentum-based.
++| Property | Rule |
++|---|---|
++| Control Input | Controlled by mouse or touch position (X and Y coordinates). |
++| Movement Physics | The player does not jump instantly to the input location. In every game frame, the player moves only 25% of the remaining distance toward the target. This creates a challenging, responsive but momentum-driven feel. |
++| Boundaries | The player object must be horizontally clamped to the 60% wide track area. |
++3. Core Gameplay Loop & Scoring
++The game runs on a loop where objects scroll toward the bottom of the screen.
++ * Score: 1 point is awarded for every 10 frames that pass successfully.
++ * Speed Rule (Adaptive Difficulty): The scrolling speed starts at a base rate (defined by difficulty) and increases continuously the longer the player survives.
++   
++ * Game Over: Collision occurs if the player's 15x15 pixel square touches any solid pixel of an obstacle.
++4. Difficulty Modes and Parameters
++Selecting a mode sets the starting speed, acceleration, and the complexity of the obstacles generated.
++| Mode | Base Scroll Speed | Gap Size (Ratio of Track Width) | Obstacle Variety |
++|---|---|---|---|
++| EASY | Slow (e.g., 0.35 units/frame) | Wide (45% to 70% of track width) | Static Gaps only. |
++| MEDIUM | Medium (e.g., 0.60 units/frame) | Standard (35% to 60% of track width) | Static Gaps, Shifting Walls, and Spinning Cores. |
++| HARD (Rage Mode) | Fast (e.g., 1.00 units/frame) | Narrow (25% to 45% of track width) | All obstacle types, with maximum speed and frequency. |
++5. Obstacle Catalog (5 Types)
++The system must randomly select one of the allowed obstacle types for the current difficulty mode every time a new barrier is spawned.
++| Type Name | ID | Appearance & Behavior Rule | Collision Difficulty |
++|---|---|---|---|
++| 1. Standard Gap | 1 | A simple wall with a single, randomly positioned opening. | Easy |
++| 2. Center Gap | 2 | Two blocks separated by a narrow gap directly in the center of the track. | Medium |
++| 3. Moving Wall | 3 | A standard gap where the opening slowly shifts horizontally back and forth across the track. | Medium |
++| 4. Spinning Core | 4 | A large, central hazard that rotates clockwise or counter-clockwise at a constant rate. Player must time their vertical position to pass through the empty quadrants. | High |
++| 5. Hyper Dash Wall | 5 | A standard wall, colored orange to signal danger. This wall scrolls at 2.5x the current game speed, forcing an immediate reaction. | Extreme |
++6. Game Over Effect
++When the player collides with an obstacle, the following must occur:
++ * Game pauses immediately.
++ * The highest achieved score is saved.
++ * The entire track/canvas area should briefly vibrate or shake violently (e.g., for 0.5 seconds).
++ * An overlay appears showing the final score and the option to restart by selecting a new difficulty mode.
++
+
+# 2025-12-01 07:49:04.329181
++Recreate the while entire game
++
++Velocity Core: Rage Dash:
++Game Blueprint: Velocity Core: Rage Dash
++1. Game Environment and Aesthetics
++The game takes place within a vertical, endless runner format.
++ * Theme: High-contrast, dark/black background with bright Neon accents (Sci-Fi/Matrix look).
++ * Track Layout: The playable area is a central vertical column, fixed at 60% of the screen's width. The remaining 40% on the sides is non-playable space, bordered by a glowing line.
++ * Player Object (The Core): A small, 15x15 pixel glowing square.
++ * Obstacle Objects: Darker blocks with bright neon outlines (pink/red, orange for special ones).
++2. Player Controls and Movement
++The player's movement is designed to feel slightly slippery and momentum-based.
++| Property | Rule |
++|---|---|
++| Control Input | Controlled by mouse or touch position (X and Y coordinates). |
++| Movement Physics | The player does not jump instantly to the input location. In every game frame, the player moves only 25% of the remaining distance toward the target. This creates a challenging, responsive but momentum-driven feel. |
++| Boundaries | The player object must be horizontally clamped to the 60% wide track area. |
++3. Core Gameplay Loop & Scoring
++The game runs on a loop where objects scroll toward the bottom of the screen.
++ * Score: 1 point is awarded for every 10 frames that pass successfully.
++ * Speed Rule (Adaptive Difficulty): The scrolling speed starts at a base rate (defined by difficulty) and increases continuously the longer the player survives.
++   
++ * Game Over: Collision occurs if the player's 15x15 pixel square touches any solid pixel of an obstacle.
++4. Difficulty Modes and Parameters
++Selecting a mode sets the starting speed, acceleration, and the complexity of the obstacles generated.
++| Mode | Base Scroll Speed | Gap Size (Ratio of Track Width) | Obstacle Variety |
++|---|---|---|---|
++| EASY | Slow (e.g., 0.35 units/frame) | Wide (45% to 70% of track width) | Static Gaps only. |
++| MEDIUM | Medium (e.g., 0.60 units/frame) | Standard (35% to 60% of track width) | Static Gaps, Shifting Walls, and Spinning Cores. |
++| HARD (Rage Mode) | Fast (e.g., 1.00 units/frame) | Narrow (25% to 45% of track width) | All obstacle types, with maximum speed and frequency. |
++5. Obstacle Catalog (5 Types)
++The system must randomly select one of the allowed obstacle types for the current difficulty mode every time a new barrier is spawned.
++| Type Name | ID | Appearance & Behavior Rule | Collision Difficulty |
++|---|---|---|---|
++| 1. Standard Gap | 1 | A simple wall with a single, randomly positioned opening. | Easy |
++| 2. Center Gap | 2 | Two blocks separated by a narrow gap directly in the center of the track. | Medium |
++| 3. Moving Wall | 3 | A standard gap where the opening slowly shifts horizontally back and forth across the track. | Medium |
++| 4. Spinning Core | 4 | A large, central hazard that rotates clockwise or counter-clockwise at a constant rate. Player must time their vertical position to pass through the empty quadrants. | High |
++| 5. Hyper Dash Wall | 5 | A standard wall, colored orange to signal danger. This wall scrolls at 2.5x the current game speed, forcing an immediate reaction. | Extreme |
++6. Game Over Effect
++When the player collides with an obstacle, the following must occur:
++ * Game pauses immediately.
++ * The highest achieved score is saved.
++ * The entire track/canvas area should briefly vibrate or shake violently (e.g., for 0.5 seconds).
++ * An overlay appears showing the final score and the option to restart by selecting a new difficulty mode.
++
