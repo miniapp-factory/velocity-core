@@ -1,0 +1,1270 @@
+
+# 2025-12-01 06:50:07.615912
++Code the following app
++```
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Velocity Core: Rage Dash</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <style>
++        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
++        body {
++            font-family: 'Orbitron', sans-serif;
++            background-color: #000000;
++            display: flex;
++            justify-content: center;
++            align-items: center;
++            min-height: 100vh;
++            margin: 0;
++            user-select: none;
++            overflow: hidden;
++        }
++        #app-container {
++            border: 3px solid #00ffaa;
++            box-shadow: 0 0 50px rgba(0, 255, 170, 0.5); 
++            background-color: #0d1117;
++        }
++        #game-canvas {
++            touch-action: none; 
++            cursor: none;
++            background-color: #000000;
++        }
++        .vibration-effect {
++            animation: vibrate 0.1s linear infinite;
++        }
++        @keyframes vibrate {
++            0% { transform: translate(2px, 2px); }
++            25% { transform: translate(-2px, -2px); }
++            50% { transform: translate(2px, -2px); }
++            75% { transform: translate(-2px, 2px); }
++            100% { transform: translate(2px, 2px); }
++        }
++        .mode-button {
++            transition: all 0.15s ease-in-out;
++            text-shadow: 0 0 5px currentColor;
++            border: 2px solid transparent;
++            font-size: 0.875rem; 
++            padding: 0.5rem 0.5rem; 
++            line-height: 1.25;
++            font-weight: 700;
++            letter-spacing: 0.5px;
++            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
++        }
++        .mode-button:hover {
++            opacity: 0.85;
++            box-shadow: 0 0 15px currentColor;
++        }
++        .mode-easy { background-color: #4ade80; color: #000; border-color: #4ade80; }
++        .mode-medium { background-color: #facc15; color: #000; border-color: #facc15; }
++        .mode-hard { background-color: #ef4444; color: #000; border-color: #ef4444; }
++    </style>
++</head>
++<body class="p-4">
++
++    <div id="app-container" class="w-full max-w-sm p-4 rounded-3xl flex flex-col items-center">
++        <!-- Title & Score -->
++        <h1 class="text-3xl font-black text-lime-400 mb-2 tracking-widest">VELOCITY CORE</h1>
++        <p class="text-gray-400 text-sm mb-4 font-mono">Rage Dash. Master the momentum.</p>
++
++        <div class="flex justify-between w-full px-2 mb-4 text-white text-lg font-mono">
++            <span>Score: <span id="current-score" class="font-bold text-lime-300">0</span></span>
++            <span>Best: <span id="high-score" class="font-bold text-lime-300">0</span></span>
++        </div>
++
++        <!-- Canvas Container -->
++        <div id="canvas-wrapper" class="relative w-full aspect-[9/16] max-h-[80vh] overflow-hidden rounded-xl">
++            <canvas id="game-canvas" class="w-full h-full"></canvas>
++            
++            <!-- Game Over/Start Overlay -->
++            <div id="game-overlay" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center text-center p-8 transition-opacity duration-300">
++                <h2 id="overlay-title" class="text-6xl font-black text-lime-400 mb-4 tracking-widest">INITIATE</h2>
++                <p id="overlay-message" class="text-xl text-gray-300 mb-8 font-mono">Choose your difficulty to begin the 2D matrix run.</p>
++                
++                <div id="mode-selection" class="grid grid-cols-3 gap-3 w-full max-w-xs">
++                    <button data-mode="easy" class="mode-button mode-easy rounded-full shadow-lg shadow-green-500/50 hover:shadow-green-500">
++                        EASY
++                    </button>
++                    <button data-mode="medium" class="mode-button mode-medium rounded-full shadow-lg shadow-yellow-500/50 hover:shadow-yellow-500">
++                        MEDIUM
++                    </button>
++                    <button data-mode="hard" class="mode-button mode-hard rounded-full shadow-lg shadow-red-500/50 hover:shadow-red-500">
++                        HARD
++                    </button>
++                </div>
++                <p class="text-xs text-gray-500 mt-4 font-mono">Hard mode adds Spinning and Hyper Dash Walls.</p>
++
++            </div>
++        </div>
++    </div>
++
++    <script>
++        const canvas = document.getElementById('game-canvas');
++        const ctx = canvas.getContext('2d');
++        const wrapper = document.getElementById('canvas-wrapper');
++        const scoreEl = document.getElementById('current-score');
++        const highscoreEl = document.getElementById('high-score');
++        const overlay = document.getElementById('game-overlay');
++        const overlayTitle = document.getElementById('overlay-title');
++        const overlayMessage = document.getElementById('overlay-message');
++        const modeSelectionDiv = document.getElementById('mode-selection');
++        
++        let WIDTH;
++        let HEIGHT;
++        
++        // --- Game Configuration ---
++        const TRACK_WIDTH_RATIO = 0.6; 
++        let TRACK_X_START;
++        let TRACK_X_END;
++        const PLAYER_SIZE = 15;
++        const OBSTACLE_HEIGHT = 20;
++        const PLAYER_SMOOTHING = 0.25; 
++
++        // Complexity Levels: 1=Standard, 2=Center Gap, 3=Moving Gap, 4=Spinner, 5=Dash Wall
++        const MAX_COMPLEXITY_EASY = 1; 
++        const MAX_COMPLEXITY_MEDIUM = 4; // Up to Spinner
++        const MAX_COMPLEXITY_HARD = 5; // All 5 types
++
++        // Difficulty Settings
++        const configPresets = {
++            easy: {
++                initialSpeed: 0.35,
++                scoreMultiplier: 0.00008, 
++                spawnInterval: 160,       
++                color: '#4ade80',         
++                minGapRatio: 0.45,        
++                maxGapRatio: 0.70,
++                maxComplexity: MAX_COMPLEXITY_EASY
++            },
++            medium: {
++                initialSpeed: 0.60,
++                scoreMultiplier: 0.00012,
++                spawnInterval: 130,       
++                color: '#facc15',         
++                minGapRatio: 0.35,        
++                maxGapRatio: 0.60,
++                maxComplexity: MAX_COMPLEXITY_MEDIUM
++            },
++            hard: {
++                initialSpeed: 1.00, // Even faster start!
++                scoreMultiplier: 0.00020, // Faster acceleration
++                spawnInterval: 90,       // Highest frequency
++                color: '#ef4444',         
++                minGapRatio: 0.25,        
++                maxGapRatio: 0.45,
++                maxComplexity: MAX_COMPLEXITY_HARD
++            }
++        };
++        
++        let currentConfig = configPresets.medium; 
++        
++        // --- Game State ---
++        let score = 0;
++        let highscore = 0;
++        let scrollSpeed = 0;
++        let obstacles = [];
++        let particles = [];
++        let gameRunning = false;
++        let frameCount = 0;
++        let targetX; 
++        let targetY; 
++        let animationFrameId = null;
++        let isVibrating = false;
++
++        // --- Particle System (Unchanged) ---
++        class Particle {
++            constructor(x, y, color) {
++                this.x = x;
++                this.y = y;
++                this.size = Math.random() * 4 + 1;
++                this.alpha = 1;
++                this.color = color;
++                this.velocity = {
++                    x: (Math.random() - 0.5) * 0.5,
++                    y: (Math.random() * 0.5) * -1 
++                };
++            }
++
++            update() {
++                this.x += this.velocity.x;
++                this.y += this.velocity.y + scrollSpeed * 0.2; 
++                this.alpha -= 0.03; 
++                this.size *= 0.95; 
++            }
++
++            draw() {
++                ctx.globalAlpha = this.alpha;
++                ctx.fillStyle = this.color;
++                ctx.beginPath();
++                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
++                ctx.fill();
++                ctx.globalAlpha = 1;
++            }
++        }
++
++        const createTrail = () => {
++            if (frameCount % 3 === 0) {
++                particles.push(new Particle(player.x, player.y, currentConfig.color));
++            }
++        };
++
++        const updateParticles = () => {
++            for (let i = particles.length - 1; i >= 0; i--) {
++                particles[i].update();
++                particles[i].draw();
++
++                if (particles[i].alpha <= 0.05 || particles[i].size < 0.5) {
++                    particles.splice(i, 1);
++                }
++            }
++        };
++
++
++        // --- Player Object (Unchanged) ---
++        const player = {
++            x: 0,
++            y: 0,
++            size: PLAYER_SIZE,
++            
++            update: function() {
++                this.x += (targetX - this.x) * PLAYER_SMOOTHING;
++                this.y += (targetY - this.y) * PLAYER_SMOOTHING;
++                
++                const minX = TRACK_X_START + this.size / 2;
++                const maxX = TRACK_X_END - this.size / 2;
++                this.x = Math.max(minX, Math.min(maxX, this.x));
++
++                const minY = this.size / 2;
++                const maxY = HEIGHT - this.size / 2;
++                this.y = Math.max(minY, Math.min(maxY, this.y));
++            },
++            
++            draw: function() {
++                this.color = currentConfig.color;
++
++                ctx.fillStyle = this.color;
++                ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
++                
++                ctx.shadowColor = this.color;
++                ctx.shadowBlur = 20;
++                ctx.fillStyle = '#FFFFFF';
++                ctx.fillRect(this.x - 4, this.y - 4, 8, 8); 
++                ctx.shadowBlur = 0; 
++            }
++        };
++
++        // --- Obstacle Generation (Updated for Types 4 and 5) ---
++        class Obstacle {
++            constructor(y) {
++                this.y = y;
++                this.height = OBSTACLE_HEIGHT;
++                this.color = '#ff0055'; // Neon Red/Pink 
++                this.width = WIDTH * TRACK_WIDTH_RATIO;
++                this.x = TRACK_X_START;
++                
++                // Rotation and Speed properties for new types
++                this.rotation = 0;
++                this.rotationSpeed = 0; 
++                this.specificScrollSpeed = 0; 
++
++                // Randomly select obstacle type based on current mode's complexity
++                this.type = Math.floor(Math.random() * currentConfig.maxComplexity) + 1; 
++
++                this.initializeType();
++            }
++
++            initializeType() {
++                const minRatio = currentConfig.minGapRatio;
++                const maxRatio = currentConfig.maxGapRatio;
++                this.gapSize = this.width * (minRatio + Math.random() * (maxRatio - minRatio));
++                
++                if (this.type === 1) { // Standard Gap
++                    this.gapPosition = TRACK_X_START + Math.random() * (this.width - this.gapSize);
++                } else if (this.type === 2) { // Center Gap
++                    // Gap is centered, blocks are on the left and right
++                    this.gapPosition = TRACK_X_START + (this.width - this.gapSize) / 2;
++                } else if (this.type === 3) { // Moving Gap
++                    this.gapPosition = TRACK_X_START + Math.random() * (this.width - this.gapSize);
++                    this.moveOffset = Math.random() * 0.05 + 0.02; 
++                    this.moveAmplitude = this.width * 0.2; 
++                    this.currentGapPosition = this.gapPosition;
++                } else if (this.type === 4) { // Spinning Core (Central rotating hazard)
++                    // Ensure a large gap for the spinner to fit
++                    this.gapSize = this.width * 0.70; 
++                    this.gapPosition = TRACK_X_START + (this.width - this.gapSize) / 2; 
++                    this.spinnerSize = this.gapSize * 0.6; // Size of the rotating hazard
++                    this.rotationSpeed = currentConfig === configPresets.hard ? 0.10 : 0.07; // Faster rotation on hard
++
++                } else if (this.type === 5) { // Hyper Dash Wall
++                    this.gapSize = this.width * (minRatio + Math.random() * (maxRatio - minRatio));
++                    this.gapPosition = TRACK_X_START + Math.random() * (this.width - this.gapSize);
++                    this.specificScrollSpeed = scrollSpeed * 2.5; // 2.5 times faster than current speed
++                }
++            }
++
++            update() {
++                // Use specific speed if it's a Dash Wall
++                this.y += (this.type === 5) ? this.specificScrollSpeed : scrollSpeed;
++                
++                if (this.type === 3) {
++                    const sineWave = Math.sin(frameCount * this.moveOffset) * this.moveAmplitude;
++                    this.currentGapPosition = this.gapPosition + sineWave;
++                    this.currentGapPosition = Math.max(TRACK_X_START, Math.min(TRACK_X_END - this.gapSize, this.currentGapPosition));
++                } else if (this.type === 4) {
++                    this.rotation += this.rotationSpeed;
++                }
++            }
++
++            draw() {
++                let gapL;
++                let gapR;
++                let obstacleColor = (this.type === 5) ? '#ff9900' : this.color; // Orange for Dash Wall
++
++                ctx.fillStyle = obstacleColor;
++                ctx.shadowColor = obstacleColor;
++                ctx.shadowBlur = 10;
++                
++                if (this.type === 3) {
++                    gapL = this.currentGapPosition;
++                    gapR = this.currentGapPosition + this.gapSize;
++                } else {
++                    gapL = this.gapPosition;
++                    gapR = this.gapPosition + this.gapSize;
++                }
++                
++                // Draw fixed blocks (Applies to all types)
++                ctx.fillRect(this.x, this.y, gapL - this.x, this.height);
++                ctx.fillRect(gapR, this.y, this.x + this.width - gapR, this.height);
++
++                if (this.type === 4) { // Draw the rotating core hazard
++                    const centerX = gapL + this.gapSize / 2;
++                    const centerY = this.y + this.height / 2;
++                    const s = this.spinnerSize / 2;
++
++                    ctx.save();
++                    ctx.translate(centerX, centerY);
++                    ctx.rotate(this.rotation);
++
++                    // Draw the rotating cross/square (lethal shape)
++                    ctx.fillStyle = obstacleColor; 
++                    ctx.fillRect(-s, -s/5, s*2, s/2.5); // Horizontal bar (thicker)
++                    ctx.fillRect(-s/5, -s, s/2.5, s*2); // Vertical bar (thicker)
++                    
++                    ctx.restore(); 
++                }
++                
++                ctx.shadowBlur = 0; 
++            }
++            
++            checkCollision() {
++                const pL = player.x - player.size / 2;
++                const pR = player.x + player.size / 2;
++                const pT = player.y - player.size / 2;
++                const pB = player.y + player.size / 2;
++
++                const oT = this.y;
++                const oB = this.y + this.height;
++                
++                if (pB > oT && pT < oB) {
++                    let gapL;
++                    let gapR;
++
++                    if (this.type === 3) {
++                        gapL = this.currentGapPosition;
++                        gapR = this.currentGapPosition + this.gapSize;
++                    } else {
++                        gapL = this.gapPosition;
++                        gapR = this.gapPosition + this.gapSize;
++                    }
++
++                    // Check collision with the fixed side blocks (Applies to all types)
++                    if ((pR > this.x && pL < gapL) || (pL < this.x + this.width && pR > gapR)) {
++                        return true; 
++                    }
++                    
++                    if (this.type === 4) {
++                        // --- Spinning Core Specific Collision (Advanced) ---
++                        const centerX = this.gapPosition + this.gapSize / 2;
++                        const centerY = this.y + this.height / 2;
++                        const s = this.spinnerSize / 2;
++                        
++                        // 1. Rotate player center coordinates by the inverse rotation angle
++                        const cos = Math.cos(-this.rotation);
++                        const sin = Math.sin(-this.rotation);
++                        const pCX = player.x;
++                        const pCY = player.y;
++
++                        // Rotated player center coordinates relative to the spinner's center
++                        const rPx = centerX + (pCX - centerX) * cos - (pCY - centerY) * sin;
++                        const rPy = centerY + (pCX - centerX) * sin + (pCY - centerY) * cos;
++                        
++                        // Half size of the cross arms
++                        const barHalfWidth = s;
++                        const barHalfHeight = s/2.5;
++
++                        // Check collision with the Horizontal bar (now unrotated in the new frame)
++                        if (rPx + player.size/2 > centerX - barHalfWidth && rPx - player.size/2 < centerX + barHalfWidth && 
++                            rPy + player.size/2 > centerY - barHalfHeight && rPy - player.size/2 < centerY + barHalfHeight) {
++                            return true;
++                        }
++
++                        // Check collision with the Vertical bar (now unrotated in the new frame)
++                        if (rPx + player.size/2 > centerX - barHalfHeight && rPx - player.size/2 < centerX + barHalfHeight && 
++                            rPy + player.size/2 > centerY - barHalfWidth && rPy - player.size/2 < centerY + barHalfWidth) {
++                            return true;
++                        }
++                    }
++                }
++                
++                return false;
++            }
++        }
++
++        // --- Game Logic Functions (Mostly Unchanged) ---
++
++        const loadHighScore = () => {
++            const storedHigh = localStorage.getItem('ascentDashHighscore');
++            highscore = storedHigh ? parseInt(storedHigh) : 0;
++            highscoreEl.textContent = highscore;
++        };
++
++        const saveHighScore = () => {
++            if (score > highscore) {
++                localStorage.setItem('ascentDashHighscore', score);
++                highscore = score;
++                highscoreEl.textContent = highscore;
++            }
++        };
++
++        const drawTrack = () => {
++            ctx.fillStyle = '#000000'; 
++            ctx.fillRect(0, 0, TRACK_X_START, HEIGHT);
++            ctx.fillRect(TRACK_X_END, 0, WIDTH - TRACK_X_END, HEIGHT);
++            
++            ctx.shadowColor = currentConfig.color; 
++            ctx.shadowBlur = 15;
++            
++            ctx.fillStyle = '#111827';
++            ctx.fillRect(TRACK_X_START - 2, 0, 4, HEIGHT);
++            
++            ctx.fillRect(TRACK_X_END - 2, 0, 4, HEIGHT);
++            
++            ctx.shadowBlur = 0; 
++        };
++
++        const gameLoop = () => {
++            if (!gameRunning) {
++                cancelAnimationFrame(animationFrameId);
++                return;
++            }
++            
++            ctx.fillStyle = '#000000';
++            ctx.fillRect(TRACK_X_START, 0, WIDTH * TRACK_WIDTH_RATIO, HEIGHT);
++            
++            drawTrack();
++            
++            for (let i = 0; i < obstacles.length; i++) {
++                obstacles[i].update();
++                obstacles[i].draw();
++                
++                if (obstacles[i].checkCollision()) {
++                    gameOver();
++                    return;
++                }
++            }
++
++            obstacles = obstacles.filter(obs => obs.y < HEIGHT);
++            
++            player.update();
++            createTrail();
++            updateParticles();
++            player.draw();
++            
++            frameCount++;
++            score = Math.floor(frameCount / 10); 
++            scoreEl.textContent = score;
++
++            // Speed adaptive logic
++            scrollSpeed = currentConfig.initialSpeed + (score * currentConfig.scoreMultiplier);
++
++            // Obstacle Spawner 
++            if (frameCount % currentConfig.spawnInterval === 0) {
++                obstacles.push(new Obstacle(-OBSTACLE_HEIGHT));
++            }
++            
++            animationFrameId = requestAnimationFrame(gameLoop);
++        };
++
++        const startGame = (mode) => {
++            if (gameRunning) return;
++            
++            currentConfig = configPresets[mode];
++            
++            // Reset state
++            gameRunning = true;
++            score = 0;
++            frameCount = 0;
++            // Recalculate speed just in case currentConfig changed
++            scrollSpeed = currentConfig.initialSpeed; 
++            obstacles = [];
++            particles = [];
++            
++            // Start the player in the center
++            player.x = WIDTH / 2;
++            player.y = HEIGHT / 2;
++            targetX = player.x;
++            targetY = player.y;
++            
++            overlay.classList.add('opacity-0', 'pointer-events-none');
++            overlayTitle.classList.remove('text-red-500');
++            overlayTitle.classList.add('text-lime-400');
++            
++            gameLoop();
++        };
++
++        const gameOver = () => {
++            gameRunning = false;
++            saveHighScore();
++            
++            overlay.classList.remove('opacity-0', 'pointer-events-none');
++            overlayTitle.textContent = "CORE BREACHED";
++            overlayTitle.classList.remove('text-lime-400', 'text-green-500', 'text-yellow-500');
++            overlayTitle.classList.add('text-red-500');
++            overlayMessage.innerHTML = `Velocity Lost at <span class="text-white font-bold">${score}</span> units.<br>High Score: ${highscore}.<br>Try a different mode!`;
++            
++            // Re-render mode selection 
++            modeSelectionDiv.innerHTML = `
++                <button data-mode="easy" class="mode-button mode-easy rounded-full shadow-lg shadow-green-500/50 hover:shadow-green-500">
++                    EASY
++                </button>
++                <button data-mode="medium" class="mode-button mode-medium rounded-full shadow-lg shadow-yellow-500/50 hover:shadow-yellow-500">
++                    MEDIUM
++                </button>
++                <button data-mode="hard" class="mode-button mode-hard rounded-full shadow-lg shadow-red-500/50 hover:shadow-red-500">
++                    HARD
++                </button>
++            `;
++            attachModeListeners(); 
++            
++            if (!isVibrating) {
++                isVibrating = true;
++                wrapper.classList.add('vibration-effect');
++                setTimeout(() => {
++                    wrapper.classList.remove('vibration-effect');
++                    isVibrating = false;
++                }, 500);
++            }
++            
++            cancelAnimationFrame(animationFrameId);
++        };
++
++        // --- Event Handlers and Initialization ---
++        
++        const handleInputMove = (e) => {
++            if (!gameRunning) return;
++            
++            const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
++            const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
++            
++            e.preventDefault(); 
++
++            const rect = canvas.getBoundingClientRect();
++            
++            targetX = (clientX - rect.left) * (WIDTH / rect.width);
++            targetY = (clientY - rect.top) * (HEIGHT / rect.height);
++            
++            targetX = Math.max(TRACK_X_START + player.size/2, Math.min(TRACK_X_END - player.size/2, targetX));
++            targetY = Math.max(player.size/2, Math.min(HEIGHT - player.size/2, targetY));
++        };
++        
++        const handleResize = () => {
++            WIDTH = wrapper.clientWidth;
++            HEIGHT = wrapper.clientHeight;
++            canvas.width = WIDTH;
++            canvas.height = HEIGHT;
++            
++            TRACK_X_START = (WIDTH * (1 - TRACK_WIDTH_RATIO)) / 2;
++            TRACK_X_END = TRACK_X_START + (WIDTH * TRACK_WIDTH_RATIO);
++
++            if (!gameRunning) {
++                player.x = WIDTH / 2;
++                player.y = HEIGHT / 2;
++                targetX = player.x;
++                targetY = player.y;
++            }
++            
++            if (!gameRunning) {
++                ctx.clearRect(0, 0, WIDTH, HEIGHT);
++                drawTrack();
++                player.draw();
++            }
++        };
++
++        const attachModeListeners = () => {
++            document.querySelectorAll('.mode-button').forEach(button => {
++                button.addEventListener('click', (e) => {
++                    const mode = e.currentTarget.dataset.mode;
++                    startGame(mode);
++                });
++            });
++        };
++
++        // Attach listeners
++        canvas.addEventListener('mousemove', handleInputMove);
++        canvas.addEventListener('touchmove', handleInputMove);
++        canvas.addEventListener('touchstart', (e) => {
++            handleInputMove(e);
++        });
++        window.addEventListener('resize', handleResize);
++        
++        // Initial setup sequence on load
++        window.onload = () => {
++            loadHighScore();
++            handleResize();
++            attachModeListeners();
++        };
++
++    </script>
++</body>
++</html>
++
++```
++
++Generate an app logo and update the app metadata title and description.
+
+# 2025-12-01 06:50:07.617600
++Code the following app
++```
++<!DOCTYPE html>
++<html lang="en">
++<head>
++    <meta charset="UTF-8">
++    <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <title>Velocity Core: Rage Dash</title>
++    <script src="https://cdn.tailwindcss.com"></script>
++    <style>
++        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
++        body {
++            font-family: 'Orbitron', sans-serif;
++            background-color: #000000;
++            display: flex;
++            justify-content: center;
++            align-items: center;
++            min-height: 100vh;
++            margin: 0;
++            user-select: none;
++            overflow: hidden;
++        }
++        #app-container {
++            border: 3px solid #00ffaa;
++            box-shadow: 0 0 50px rgba(0, 255, 170, 0.5); 
++            background-color: #0d1117;
++        }
++        #game-canvas {
++            touch-action: none; 
++            cursor: none;
++            background-color: #000000;
++        }
++        .vibration-effect {
++            animation: vibrate 0.1s linear infinite;
++        }
++        @keyframes vibrate {
++            0% { transform: translate(2px, 2px); }
++            25% { transform: translate(-2px, -2px); }
++            50% { transform: translate(2px, -2px); }
++            75% { transform: translate(-2px, 2px); }
++            100% { transform: translate(2px, 2px); }
++        }
++        .mode-button {
++            transition: all 0.15s ease-in-out;
++            text-shadow: 0 0 5px currentColor;
++            border: 2px solid transparent;
++            font-size: 0.875rem; 
++            padding: 0.5rem 0.5rem; 
++            line-height: 1.25;
++            font-weight: 700;
++            letter-spacing: 0.5px;
++            box-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
++        }
++        .mode-button:hover {
++            opacity: 0.85;
++            box-shadow: 0 0 15px currentColor;
++        }
++        .mode-easy { background-color: #4ade80; color: #000; border-color: #4ade80; }
++        .mode-medium { background-color: #facc15; color: #000; border-color: #facc15; }
++        .mode-hard { background-color: #ef4444; color: #000; border-color: #ef4444; }
++    </style>
++</head>
++<body class="p-4">
++
++    <div id="app-container" class="w-full max-w-sm p-4 rounded-3xl flex flex-col items-center">
++        <!-- Title & Score -->
++        <h1 class="text-3xl font-black text-lime-400 mb-2 tracking-widest">VELOCITY CORE</h1>
++        <p class="text-gray-400 text-sm mb-4 font-mono">Rage Dash. Master the momentum.</p>
++
++        <div class="flex justify-between w-full px-2 mb-4 text-white text-lg font-mono">
++            <span>Score: <span id="current-score" class="font-bold text-lime-300">0</span></span>
++            <span>Best: <span id="high-score" class="font-bold text-lime-300">0</span></span>
++        </div>
++
++        <!-- Canvas Container -->
++        <div id="canvas-wrapper" class="relative w-full aspect-[9/16] max-h-[80vh] overflow-hidden rounded-xl">
++            <canvas id="game-canvas" class="w-full h-full"></canvas>
++            
++            <!-- Game Over/Start Overlay -->
++            <div id="game-overlay" class="absolute inset-0 bg-black/90 flex flex-col justify-center items-center text-center p-8 transition-opacity duration-300">
++                <h2 id="overlay-title" class="text-6xl font-black text-lime-400 mb-4 tracking-widest">INITIATE</h2>
++                <p id="overlay-message" class="text-xl text-gray-300 mb-8 font-mono">Choose your difficulty to begin the 2D matrix run.</p>
++                
++                <div id="mode-selection" class="grid grid-cols-3 gap-3 w-full max-w-xs">
++                    <button data-mode="easy" class="mode-button mode-easy rounded-full shadow-lg shadow-green-500/50 hover:shadow-green-500">
++                        EASY
++                    </button>
++                    <button data-mode="medium" class="mode-button mode-medium rounded-full shadow-lg shadow-yellow-500/50 hover:shadow-yellow-500">
++                        MEDIUM
++                    </button>
++                    <button data-mode="hard" class="mode-button mode-hard rounded-full shadow-lg shadow-red-500/50 hover:shadow-red-500">
++                        HARD
++                    </button>
++                </div>
++                <p class="text-xs text-gray-500 mt-4 font-mono">Hard mode adds Spinning and Hyper Dash Walls.</p>
++
++            </div>
++        </div>
++    </div>
++
++    <script>
++        const canvas = document.getElementById('game-canvas');
++        const ctx = canvas.getContext('2d');
++        const wrapper = document.getElementById('canvas-wrapper');
++        const scoreEl = document.getElementById('current-score');
++        const highscoreEl = document.getElementById('high-score');
++        const overlay = document.getElementById('game-overlay');
++        const overlayTitle = document.getElementById('overlay-title');
++        const overlayMessage = document.getElementById('overlay-message');
++        const modeSelectionDiv = document.getElementById('mode-selection');
++        
++        let WIDTH;
++        let HEIGHT;
++        
++        // --- Game Configuration ---
++        const TRACK_WIDTH_RATIO = 0.6; 
++        let TRACK_X_START;
++        let TRACK_X_END;
++        const PLAYER_SIZE = 15;
++        const OBSTACLE_HEIGHT = 20;
++        const PLAYER_SMOOTHING = 0.25; 
++
++        // Complexity Levels: 1=Standard, 2=Center Gap, 3=Moving Gap, 4=Spinner, 5=Dash Wall
++        const MAX_COMPLEXITY_EASY = 1; 
++        const MAX_COMPLEXITY_MEDIUM = 4; // Up to Spinner
++        const MAX_COMPLEXITY_HARD = 5; // All 5 types
++
++        // Difficulty Settings
++        const configPresets = {
++            easy: {
++                initialSpeed: 0.35,
++                scoreMultiplier: 0.00008, 
++                spawnInterval: 160,       
++                color: '#4ade80',         
++                minGapRatio: 0.45,        
++                maxGapRatio: 0.70,
++                maxComplexity: MAX_COMPLEXITY_EASY
++            },
++            medium: {
++                initialSpeed: 0.60,
++                scoreMultiplier: 0.00012,
++                spawnInterval: 130,       
++                color: '#facc15',         
++                minGapRatio: 0.35,        
++                maxGapRatio: 0.60,
++                maxComplexity: MAX_COMPLEXITY_MEDIUM
++            },
++            hard: {
++                initialSpeed: 1.00, // Even faster start!
++                scoreMultiplier: 0.00020, // Faster acceleration
++                spawnInterval: 90,       // Highest frequency
++                color: '#ef4444',         
++                minGapRatio: 0.25,        
++                maxGapRatio: 0.45,
++                maxComplexity: MAX_COMPLEXITY_HARD
++            }
++        };
++        
++        let currentConfig = configPresets.medium; 
++        
++        // --- Game State ---
++        let score = 0;
++        let highscore = 0;
++        let scrollSpeed = 0;
++        let obstacles = [];
++        let particles = [];
++        let gameRunning = false;
++        let frameCount = 0;
++        let targetX; 
++        let targetY; 
++        let animationFrameId = null;
++        let isVibrating = false;
++
++        // --- Particle System (Unchanged) ---
++        class Particle {
++            constructor(x, y, color) {
++                this.x = x;
++                this.y = y;
++                this.size = Math.random() * 4 + 1;
++                this.alpha = 1;
++                this.color = color;
++                this.velocity = {
++                    x: (Math.random() - 0.5) * 0.5,
++                    y: (Math.random() * 0.5) * -1 
++                };
++            }
++
++            update() {
++                this.x += this.velocity.x;
++                this.y += this.velocity.y + scrollSpeed * 0.2; 
++                this.alpha -= 0.03; 
++                this.size *= 0.95; 
++            }
++
++            draw() {
++                ctx.globalAlpha = this.alpha;
++                ctx.fillStyle = this.color;
++                ctx.beginPath();
++                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
++                ctx.fill();
++                ctx.globalAlpha = 1;
++            }
++        }
++
++        const createTrail = () => {
++            if (frameCount % 3 === 0) {
++                particles.push(new Particle(player.x, player.y, currentConfig.color));
++            }
++        };
++
++        const updateParticles = () => {
++            for (let i = particles.length - 1; i >= 0; i--) {
++                particles[i].update();
++                particles[i].draw();
++
++                if (particles[i].alpha <= 0.05 || particles[i].size < 0.5) {
++                    particles.splice(i, 1);
++                }
++            }
++        };
++
++
++        // --- Player Object (Unchanged) ---
++        const player = {
++            x: 0,
++            y: 0,
++            size: PLAYER_SIZE,
++            
++            update: function() {
++                this.x += (targetX - this.x) * PLAYER_SMOOTHING;
++                this.y += (targetY - this.y) * PLAYER_SMOOTHING;
++                
++                const minX = TRACK_X_START + this.size / 2;
++                const maxX = TRACK_X_END - this.size / 2;
++                this.x = Math.max(minX, Math.min(maxX, this.x));
++
++                const minY = this.size / 2;
++                const maxY = HEIGHT - this.size / 2;
++                this.y = Math.max(minY, Math.min(maxY, this.y));
++            },
++            
++            draw: function() {
++                this.color = currentConfig.color;
++
++                ctx.fillStyle = this.color;
++                ctx.fillRect(this.x - this.size / 2, this.y - this.size / 2, this.size, this.size);
++                
++                ctx.shadowColor = this.color;
++                ctx.shadowBlur = 20;
++                ctx.fillStyle = '#FFFFFF';
++                ctx.fillRect(this.x - 4, this.y - 4, 8, 8); 
++                ctx.shadowBlur = 0; 
++            }
++        };
++
++        // --- Obstacle Generation (Updated for Types 4 and 5) ---
++        class Obstacle {
++            constructor(y) {
++                this.y = y;
++                this.height = OBSTACLE_HEIGHT;
++                this.color = '#ff0055'; // Neon Red/Pink 
++                this.width = WIDTH * TRACK_WIDTH_RATIO;
++                this.x = TRACK_X_START;
++                
++                // Rotation and Speed properties for new types
++                this.rotation = 0;
++                this.rotationSpeed = 0; 
++                this.specificScrollSpeed = 0; 
++
++                // Randomly select obstacle type based on current mode's complexity
++                this.type = Math.floor(Math.random() * currentConfig.maxComplexity) + 1; 
++
++                this.initializeType();
++            }
++
++            initializeType() {
++                const minRatio = currentConfig.minGapRatio;
++                const maxRatio = currentConfig.maxGapRatio;
++                this.gapSize = this.width * (minRatio + Math.random() * (maxRatio - minRatio));
++                
++                if (this.type === 1) { // Standard Gap
++                    this.gapPosition = TRACK_X_START + Math.random() * (this.width - this.gapSize);
++                } else if (this.type === 2) { // Center Gap
++                    // Gap is centered, blocks are on the left and right
++                    this.gapPosition = TRACK_X_START + (this.width - this.gapSize) / 2;
++                } else if (this.type === 3) { // Moving Gap
++                    this.gapPosition = TRACK_X_START + Math.random() * (this.width - this.gapSize);
++                    this.moveOffset = Math.random() * 0.05 + 0.02; 
++                    this.moveAmplitude = this.width * 0.2; 
++                    this.currentGapPosition = this.gapPosition;
++                } else if (this.type === 4) { // Spinning Core (Central rotating hazard)
++                    // Ensure a large gap for the spinner to fit
++                    this.gapSize = this.width * 0.70; 
++                    this.gapPosition = TRACK_X_START + (this.width - this.gapSize) / 2; 
++                    this.spinnerSize = this.gapSize * 0.6; // Size of the rotating hazard
++                    this.rotationSpeed = currentConfig === configPresets.hard ? 0.10 : 0.07; // Faster rotation on hard
++
++                } else if (this.type === 5) { // Hyper Dash Wall
++                    this.gapSize = this.width * (minRatio + Math.random() * (maxRatio - minRatio));
++                    this.gapPosition = TRACK_X_START + Math.random() * (this.width - this.gapSize);
++                    this.specificScrollSpeed = scrollSpeed * 2.5; // 2.5 times faster than current speed
++                }
++            }
++
++            update() {
++                // Use specific speed if it's a Dash Wall
++                this.y += (this.type === 5) ? this.specificScrollSpeed : scrollSpeed;
++                
++                if (this.type === 3) {
++                    const sineWave = Math.sin(frameCount * this.moveOffset) * this.moveAmplitude;
++                    this.currentGapPosition = this.gapPosition + sineWave;
++                    this.currentGapPosition = Math.max(TRACK_X_START, Math.min(TRACK_X_END - this.gapSize, this.currentGapPosition));
++                } else if (this.type === 4) {
++                    this.rotation += this.rotationSpeed;
++                }
++            }
++
++            draw() {
++                let gapL;
++                let gapR;
++                let obstacleColor = (this.type === 5) ? '#ff9900' : this.color; // Orange for Dash Wall
++
++                ctx.fillStyle = obstacleColor;
++                ctx.shadowColor = obstacleColor;
++                ctx.shadowBlur = 10;
++                
++                if (this.type === 3) {
++                    gapL = this.currentGapPosition;
++                    gapR = this.currentGapPosition + this.gapSize;
++                } else {
++                    gapL = this.gapPosition;
++                    gapR = this.gapPosition + this.gapSize;
++                }
++                
++                // Draw fixed blocks (Applies to all types)
++                ctx.fillRect(this.x, this.y, gapL - this.x, this.height);
++                ctx.fillRect(gapR, this.y, this.x + this.width - gapR, this.height);
++
++                if (this.type === 4) { // Draw the rotating core hazard
++                    const centerX = gapL + this.gapSize / 2;
++                    const centerY = this.y + this.height / 2;
++                    const s = this.spinnerSize / 2;
++
++                    ctx.save();
++                    ctx.translate(centerX, centerY);
++                    ctx.rotate(this.rotation);
++
++                    // Draw the rotating cross/square (lethal shape)
++                    ctx.fillStyle = obstacleColor; 
++                    ctx.fillRect(-s, -s/5, s*2, s/2.5); // Horizontal bar (thicker)
++                    ctx.fillRect(-s/5, -s, s/2.5, s*2); // Vertical bar (thicker)
++                    
++                    ctx.restore(); 
++                }
++                
++                ctx.shadowBlur = 0; 
++            }
++            
++            checkCollision() {
++                const pL = player.x - player.size / 2;
++                const pR = player.x + player.size / 2;
++                const pT = player.y - player.size / 2;
++                const pB = player.y + player.size / 2;
++
++                const oT = this.y;
++                const oB = this.y + this.height;
++                
++                if (pB > oT && pT < oB) {
++                    let gapL;
++                    let gapR;
++
++                    if (this.type === 3) {
++                        gapL = this.currentGapPosition;
++                        gapR = this.currentGapPosition + this.gapSize;
++                    } else {
++                        gapL = this.gapPosition;
++                        gapR = this.gapPosition + this.gapSize;
++                    }
++
++                    // Check collision with the fixed side blocks (Applies to all types)
++                    if ((pR > this.x && pL < gapL) || (pL < this.x + this.width && pR > gapR)) {
++                        return true; 
++                    }
++                    
++                    if (this.type === 4) {
++                        // --- Spinning Core Specific Collision (Advanced) ---
++                        const centerX = this.gapPosition + this.gapSize / 2;
++                        const centerY = this.y + this.height / 2;
++                        const s = this.spinnerSize / 2;
++                        
++                        // 1. Rotate player center coordinates by the inverse rotation angle
++                        const cos = Math.cos(-this.rotation);
++                        const sin = Math.sin(-this.rotation);
++                        const pCX = player.x;
++                        const pCY = player.y;
++
++                        // Rotated player center coordinates relative to the spinner's center
++                        const rPx = centerX + (pCX - centerX) * cos - (pCY - centerY) * sin;
++                        const rPy = centerY + (pCX - centerX) * sin + (pCY - centerY) * cos;
++                        
++                        // Half size of the cross arms
++                        const barHalfWidth = s;
++                        const barHalfHeight = s/2.5;
++
++                        // Check collision with the Horizontal bar (now unrotated in the new frame)
++                        if (rPx + player.size/2 > centerX - barHalfWidth && rPx - player.size/2 < centerX + barHalfWidth && 
++                            rPy + player.size/2 > centerY - barHalfHeight && rPy - player.size/2 < centerY + barHalfHeight) {
++                            return true;
++                        }
++
++                        // Check collision with the Vertical bar (now unrotated in the new frame)
++                        if (rPx + player.size/2 > centerX - barHalfHeight && rPx - player.size/2 < centerX + barHalfHeight && 
++                            rPy + player.size/2 > centerY - barHalfWidth && rPy - player.size/2 < centerY + barHalfWidth) {
++                            return true;
++                        }
++                    }
++                }
++                
++                return false;
++            }
++        }
++
++        // --- Game Logic Functions (Mostly Unchanged) ---
++
++        const loadHighScore = () => {
++            const storedHigh = localStorage.getItem('ascentDashHighscore');
++            highscore = storedHigh ? parseInt(storedHigh) : 0;
++            highscoreEl.textContent = highscore;
++        };
++
++        const saveHighScore = () => {
++            if (score > highscore) {
++                localStorage.setItem('ascentDashHighscore', score);
++                highscore = score;
++                highscoreEl.textContent = highscore;
++            }
++        };
++
++        const drawTrack = () => {
++            ctx.fillStyle = '#000000'; 
++            ctx.fillRect(0, 0, TRACK_X_START, HEIGHT);
++            ctx.fillRect(TRACK_X_END, 0, WIDTH - TRACK_X_END, HEIGHT);
++            
++            ctx.shadowColor = currentConfig.color; 
++            ctx.shadowBlur = 15;
++            
++            ctx.fillStyle = '#111827';
++            ctx.fillRect(TRACK_X_START - 2, 0, 4, HEIGHT);
++            
++            ctx.fillRect(TRACK_X_END - 2, 0, 4, HEIGHT);
++            
++            ctx.shadowBlur = 0; 
++        };
++
++        const gameLoop = () => {
++            if (!gameRunning) {
++                cancelAnimationFrame(animationFrameId);
++                return;
++            }
++            
++            ctx.fillStyle = '#000000';
++            ctx.fillRect(TRACK_X_START, 0, WIDTH * TRACK_WIDTH_RATIO, HEIGHT);
++            
++            drawTrack();
++            
++            for (let i = 0; i < obstacles.length; i++) {
++                obstacles[i].update();
++                obstacles[i].draw();
++                
++                if (obstacles[i].checkCollision()) {
++                    gameOver();
++                    return;
++                }
++            }
++
++            obstacles = obstacles.filter(obs => obs.y < HEIGHT);
++            
++            player.update();
++            createTrail();
++            updateParticles();
++            player.draw();
++            
++            frameCount++;
++            score = Math.floor(frameCount / 10); 
++            scoreEl.textContent = score;
++
++            // Speed adaptive logic
++            scrollSpeed = currentConfig.initialSpeed + (score * currentConfig.scoreMultiplier);
++
++            // Obstacle Spawner 
++            if (frameCount % currentConfig.spawnInterval === 0) {
++                obstacles.push(new Obstacle(-OBSTACLE_HEIGHT));
++            }
++            
++            animationFrameId = requestAnimationFrame(gameLoop);
++        };
++
++        const startGame = (mode) => {
++            if (gameRunning) return;
++            
++            currentConfig = configPresets[mode];
++            
++            // Reset state
++            gameRunning = true;
++            score = 0;
++            frameCount = 0;
++            // Recalculate speed just in case currentConfig changed
++            scrollSpeed = currentConfig.initialSpeed; 
++            obstacles = [];
++            particles = [];
++            
++            // Start the player in the center
++            player.x = WIDTH / 2;
++            player.y = HEIGHT / 2;
++            targetX = player.x;
++            targetY = player.y;
++            
++            overlay.classList.add('opacity-0', 'pointer-events-none');
++            overlayTitle.classList.remove('text-red-500');
++            overlayTitle.classList.add('text-lime-400');
++            
++            gameLoop();
++        };
++
++        const gameOver = () => {
++            gameRunning = false;
++            saveHighScore();
++            
++            overlay.classList.remove('opacity-0', 'pointer-events-none');
++            overlayTitle.textContent = "CORE BREACHED";
++            overlayTitle.classList.remove('text-lime-400', 'text-green-500', 'text-yellow-500');
++            overlayTitle.classList.add('text-red-500');
++            overlayMessage.innerHTML = `Velocity Lost at <span class="text-white font-bold">${score}</span> units.<br>High Score: ${highscore}.<br>Try a different mode!`;
++            
++            // Re-render mode selection 
++            modeSelectionDiv.innerHTML = `
++                <button data-mode="easy" class="mode-button mode-easy rounded-full shadow-lg shadow-green-500/50 hover:shadow-green-500">
++                    EASY
++                </button>
++                <button data-mode="medium" class="mode-button mode-medium rounded-full shadow-lg shadow-yellow-500/50 hover:shadow-yellow-500">
++                    MEDIUM
++                </button>
++                <button data-mode="hard" class="mode-button mode-hard rounded-full shadow-lg shadow-red-500/50 hover:shadow-red-500">
++                    HARD
++                </button>
++            `;
++            attachModeListeners(); 
++            
++            if (!isVibrating) {
++                isVibrating = true;
++                wrapper.classList.add('vibration-effect');
++                setTimeout(() => {
++                    wrapper.classList.remove('vibration-effect');
++                    isVibrating = false;
++                }, 500);
++            }
++            
++            cancelAnimationFrame(animationFrameId);
++        };
++
++        // --- Event Handlers and Initialization ---
++        
++        const handleInputMove = (e) => {
++            if (!gameRunning) return;
++            
++            const clientX = e.touches && e.touches.length > 0 ? e.touches[0].clientX : e.clientX;
++            const clientY = e.touches && e.touches.length > 0 ? e.touches[0].clientY : e.clientY;
++            
++            e.preventDefault(); 
++
++            const rect = canvas.getBoundingClientRect();
++            
++            targetX = (clientX - rect.left) * (WIDTH / rect.width);
++            targetY = (clientY - rect.top) * (HEIGHT / rect.height);
++            
++            targetX = Math.max(TRACK_X_START + player.size/2, Math.min(TRACK_X_END - player.size/2, targetX));
++            targetY = Math.max(player.size/2, Math.min(HEIGHT - player.size/2, targetY));
++        };
++        
++        const handleResize = () => {
++            WIDTH = wrapper.clientWidth;
++            HEIGHT = wrapper.clientHeight;
++            canvas.width = WIDTH;
++            canvas.height = HEIGHT;
++            
++            TRACK_X_START = (WIDTH * (1 - TRACK_WIDTH_RATIO)) / 2;
++            TRACK_X_END = TRACK_X_START + (WIDTH * TRACK_WIDTH_RATIO);
++
++            if (!gameRunning) {
++                player.x = WIDTH / 2;
++                player.y = HEIGHT / 2;
++                targetX = player.x;
++                targetY = player.y;
++            }
++            
++            if (!gameRunning) {
++                ctx.clearRect(0, 0, WIDTH, HEIGHT);
++                drawTrack();
++                player.draw();
++            }
++        };
++
++        const attachModeListeners = () => {
++            document.querySelectorAll('.mode-button').forEach(button => {
++                button.addEventListener('click', (e) => {
++                    const mode = e.currentTarget.dataset.mode;
++                    startGame(mode);
++                });
++            });
++        };
++
++        // Attach listeners
++        canvas.addEventListener('mousemove', handleInputMove);
++        canvas.addEventListener('touchmove', handleInputMove);
++        canvas.addEventListener('touchstart', (e) => {
++            handleInputMove(e);
++        });
++        window.addEventListener('resize', handleResize);
++        
++        // Initial setup sequence on load
++        window.onload = () => {
++            loadHighScore();
++            handleResize();
++            attachModeListeners();
++        };
++
++    </script>
++</body>
++</html>
++
++```
++
++Generate an app logo and update the app metadata title and description.
