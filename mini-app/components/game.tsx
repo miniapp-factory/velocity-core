@@ -216,7 +216,7 @@ export default function Game() {
     const type = Math.floor(Math.random() * maxComplex) + 1;
     const gapRatio = Math.random() * (DIFFICULTY_SETTINGS[difficulty].maxGapRatio - DIFFICULTY_SETTINGS[difficulty].minGapRatio) +
       DIFFICULTY_SETTINGS[difficulty].minGapRatio;
-    const gapWidth = trackWidth * gapRatio;
+    // const gapWidth = trackWidth * gapRatio; // unused
     const obstacle: Obstacle = {
       id: Date.now() + Math.random(),
       type,
